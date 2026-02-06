@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CIMERA_QUANTUM_PRO</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* CIMERA QUANTUM: SYSTEM DESIGN v7.0 
+           ENGINEERED BY SENIOR WEB ARCHITECT 
+        */
+        :root {
+            --pure-black: #000000;
+            --surface: #0c0c0e;
+            --elevated: #161618;
+            --accent: #007aff;
+            --danger: #ff3b30;
+            --text-p: #ffffff;
+            --text-s: #8e8e93;
+            --radius-one: 40px; /* One UI 7 High-Radius */
+            --radius-msg: 28px;
+            --safe-t: env(safe-area-inset-top);
+            --safe-b: env(safe-area-inset-bottom);
+            --ease: cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        /* HARDWARE ACCELERATION & BASE */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body, html { 
+            margin: 0; padding: 0; background: var(--pure-black); color: var(--text-p); 
+            font-family: 'Plus Jakarta Sans', sans-serif; height: 100dvh; overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 1. SILENT GATE (PIN: 1835) */
+        #gate {
+            position: fixed; inset: 0; z-index: 10000; background: var(--pure-black);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: 1.2s var(--ease);
+        }
+        .gate-status {
+            width: 100px; height: 100px; border-radius: 32px; background: var(--elevated);
+            display: flex; align-items: center; justify-content: center; margin-bottom: 60px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .dots-container { display: flex; gap: 20px; }
+        .pin-dot { width: 15px; height: 15px; border-radius: 50%; background: #2c2c2e; transition: 0.3s; }
+        .pin-dot.on { background: var(--text-p); transform: scale(1.4); box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+        #pin-field { position: absolute; opacity: 0; pointer-events: none; }
+
+        /* 2. CORE INTERFACE SHELL */
+        #shell {
+            height: 100%; display: flex; flex-direction: column;
+            opacity: 0; transform: scale(1.1) translateY(20px); transition: 1s var(--ease);
+        }
+        #shell.active { opacity: 1; transform: scale(1) translateY(0); }
+
+        /* 3. DYNAMIC ONE UI HEADER */
+        header {
+            padding: calc(65px + var(--safe-t)) 30px 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,1) 40%, rgba(0,0,0,0));
+            z-index: 500;
+        }
+        .h-wrap { display: flex; justify-content: space-between; align-items: flex-start; }
+        h1 { font-size: 46px; font-weight: 800; letter-spacing: -2.5px; margin: 0; }
+        .node-count { font-size: 11px; color: var(--accent); font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 5px; }
+
+        /* 4. SCROLL ARCHITECTURE */
+        .viewport { 
+            flex: 1; overflow-y: auto; padding: 0 20px; scrollbar-width: none;
+            mask-image: linear-gradient(to bottom, transparent, black 8%, black 92%, transparent);
+        }
+        .viewport::-webkit-scrollbar { display: none; }
+
+        /* 5. ROOM CARDS (NODE TILES) */
+        .room-card {
+            background: var(--elevated); border-radius: var(--radius-one);
+            padding: 32px; margin-bottom: 15px; display: flex; 
+            justify-content: space-between; align-items: center;
+            border: 1px solid rgba(255,255,255,0.02); transition: 0.4s var(--ease);
+            will-change: transform;
+        }
+        .room-card:active { transform: scale(0.95); background: #1c1c1e; }
+        .room-info b { font-size: 22px; font-weight: 700; display: block; }
+        .room-info span { font-size: 11px; color: var(--text-s); font-weight: 600; }
+        .room-delete {
+            width: 48px; height: 48px; border-radius: 50%; background: rgba(255,59,48,0.1);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* 6. MESSAGING MATRIX */
+        .chat-wall { display: flex; flex-direction: column; gap: 8px; padding-bottom: 160px; }
+        .msg-container { display: flex; flex-direction: column; max-width: 85%; }
+        .msg-container.me { align-self: flex-end; align-items: flex-end; }
+        .msg-container.them { align-self: flex-start; }
+        
+        .bubble { padding: 18px 25px; font-size: 17px; line-height: 1.5; transition: 0.2s var(--ease); }
+        .me .bubble { background: var(--accent); color: #fff; border-radius: 30px 30px 6px 30px; }
+        .them .bubble { background: #222224; color: #fff; border-radius: 30px 30px 30px 6px; }
+        .meta { font-size: 10px; color: var(--text-s); margin: 6px 15px 12px; font-weight: 800; }
+
+        /* 7. THE INTERACTION DOCK */
+        .dock {
+            position: fixed; bottom: 0; width: 100%;
+            padding: 15px 20px calc(25px + var(--safe-b));
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(40px) saturate(180%);
+            display: flex; gap: 12px; align-items: center; border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .input-pill {
+            flex: 1; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 35px; padding: 22px 28px; color: #fff; font-size: 17px;
+        }
+        .send-action {
+            width: 65px; height: 65px; border-radius: 50%; background: #fff;
+            border: none; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s var(--ease);
+        }
+        .send-action:active { transform: scale(0.85); }
+
+        /* NAVIGATION UTILS */
+        .view { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; }
+        .view.active { display: flex; }
+        .fab {
+            position: fixed; bottom: 130px; right: 30px; width: 78px; height: 78px;
+            background: var(--accent); border-radius: 26px; display: flex;
+            align-items: center; justify-content: center; box-shadow: 0 15px 40px rgba(0,122,255,0.3);
+            z-index: 1000; transition: 0.3s;
+        }
+        .fab:active { transform: scale(0.9); }
+
+    </style>
+</head>
+<body>
+
+    <div id="gate">
+        <div class="gate-status">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="dots-container">
+            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        </div>
+        <input type="tel" id="pin-field" maxlength="4" autocomplete="off">
+    </div>
+
+    <div id="shell">
+        
+        <div id="v-hub" class="view active">
+            <header>
+                <div class="h-wrap">
+                    <div>
+                        <div class="node-count" id="active-peers">SEARCHING MESH...</div>
+                        <h1>CIMERA</h1>
+                    </div>
+                </div>
+            </header>
+            <div class="viewport" id="room-list"></div>
+            <div class="fab" onclick="Quantum.createRoom()">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+        </div>
+
+        <div id="v-chat" class="view">
+            <header style="padding-top:calc(20px + var(--safe-t)); flex-direction:row; align-items:center; gap:25px;">
+                <button onclick="Quantum.nav('v-hub')" style="background:none; border:none; color:white; font-size:40px; line-height:0; padding:0;">←</button>
+                <h1 id="active-room-name" style="font-size:28px;">Node</h1>
+            </header>
+            <div class="viewport chat-wall" id="matrix"></div>
+            <div class="dock">
+                <input type="text" id="m-input" class="input-pill" placeholder="Transmit..." autocomplete="off">
+                <button class="send-action" onclick="Quantum.send()">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+/**
+ * CIMERA QUANTUM: BLACK OPS EDITION
+ * ARCHITECTED FOR PEER-TO-PEER SOVEREIGNTY
+ */
+
+// 1. ENGINE INITIALIZATION
+const gun = Gun({
+    peers: [
+        'https://gun-manhattan.herokuapp.com/gun',
+        'https://gun-relay.herokuapp.com/gun',
+        'https://peer.wallie.io/gun'
+    ]
+});
+
+const APP_DB = "CIMERA_QUANTUM_BLACK_OPS_V1";
+
+class QuantumMesh {
+    constructor() {
+        this.room = '';
+        this.user = 'PX-' + Math.random().toString(36).substr(2,3).toUpperCase();
+        this.locked = true;
+        this.init();
+    }
+
+    // 2. BOOT & AUTHENTICATION
+    init() {
+        const field = document.getElementById('pin-field');
+        const dots = document.querySelectorAll('.pin-dot');
+        
+        document.body.onclick = () => { if(this.locked) field.focus(); };
+        field.focus();
+
+        field.oninput = (e) => {
+            const val = e.target.value;
+            dots.forEach((d, i) => d.classList.toggle('on', i < val.length));
+            
+            if(val === "1835") {
+                this.unlock();
+            } else if(val.length === 4) {
+                setTimeout(() => {
+                    e.target.value = '';
+                    dots.forEach(d => d.classList.remove('on'));
+                }, 200);
+            }
+        };
+
+        document.getElementById('m-input').onkeydown = (e) => { 
+            if(e.key === 'Enter') this.send(); 
+        };
+
+        // AUTO-DISCOVERY ENGINE
+        // This listens to a global room index so Phone B sees Phone A's rooms
+        gun.get(APP_DB).get('discovery').map().on((name, id) => {
+            if(name) this.registerRoomLocally(name, false);
+        });
+    }
+
+    unlock() {
+        this.locked = false;
+        document.getElementById('gate').style.transform = 'translateY(-100%) scale(0.8)';
+        document.getElementById('gate').style.opacity = '0';
+        document.getElementById('shell').classList.add('active');
+        this.renderHub();
+    }
+
+    nav(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'v-hub') this.renderHub();
+    }
+
+    // 3. ROOM & DISCOVERY LOGIC
+    registerRoomLocally(name, isGlobalBroadcast) {
+        let storage = JSON.parse(localStorage.getItem('cq_v7_rooms') || '[]');
+        if(!storage.includes(name)) {
+            storage.push(name);
+            localStorage.setItem('cq_v7_rooms', JSON.stringify(storage));
+            if(isGlobalBroadcast) {
+                gun.get(APP_DB).get('discovery').set(name);
+            }
+            this.renderHub();
+        }
+    }
+
+    createRoom() {
+        const name = prompt("INITIALIZE NEW NODE ID:");
+        if(name) this.registerRoomLocally(name.toUpperCase(), true);
+    }
+
+    deleteRoom(name) {
+        if(confirm(`TERMINATE LINK TO ${name}?`)) {
+            let storage = JSON.parse(localStorage.getItem('cq_v7_rooms') || '[]');
+            localStorage.setItem('cq_v7_rooms', JSON.stringify(storage.filter(n => n !== name)));
+            this.renderHub();
+        }
+    }
+
+    renderHub() {
+        const container = document.getElementById('room-list');
+        const rooms = JSON.parse(localStorage.getItem('cq_v7_rooms') || '[]');
+        container.innerHTML = '';
+        
+        document.getElementById('active-peers').innerText = `${rooms.length} NODES SYNCHRONIZED`;
+
+        rooms.forEach(name => {
+            const el = document.createElement('div');
+            el.className = 'room-card';
+            el.innerHTML = `
+                <div class="room-info"><b>${name}</b><span>QUANTUM MESH ACTIVE</span></div>
+                <div class="room-delete" onclick="event.stopPropagation(); Quantum.deleteRoom('${name}')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="3"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                </div>
+            `;
+            el.onclick = () => {
+                this.room = name;
+                this.nav('v-chat');
+                this.syncMessages();
+            };
+            container.appendChild(el);
+        });
+    }
+
+    // 4. CHAT ENGINE (WIPE CAPABLE)
+    syncMessages() {
+        document.getElementById('active-room-name').innerText = this.room;
+        const wall = document.getElementById('matrix');
+        wall.innerHTML = '';
+
+        gun.get(APP_DB).get(this.room).map().on((data, id) => {
+            if(!data) {
+                const el = document.getElementById(id);
+                if(el) el.remove();
+                return;
+            }
+            if(!document.getElementById(id)) {
+                this.drawBubble(data, id);
+            }
+        });
+    }
+
+    send() {
+        const input = document.getElementById('m-input');
+        if(!input.value.trim()) return;
+
+        gun.get(APP_DB).get(this.room).set({
+            body: input.value,
+            usr: this.user,
+            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+        });
+
+        input.value = '';
+    }
+
+    drawBubble(data, id) {
+        const wall = document.getElementById('matrix');
+        const isMe = data.usr === this.user;
+        
+        const frame = document.createElement('div');
+        frame.id = id;
+        frame.className = `msg-container ${isMe ? 'me' : 'them'}`;
+        frame.innerHTML = `
+            <div class="bubble">${data.body}</div>
+            <div class="meta">${data.time} // ${data.usr}</div>
+        `;
+
+        // TAP TO WIPE
+        frame.onclick = () => {
+            if(confirm("PURGE DATA FROM MESH?")) {
+                gun.get(APP_DB).get(this.room).get(id).put(null);
+            }
+        };
+
+        wall.appendChild(frame);
+        wall.scrollTop = wall.scrollHeight;
+    }
+}
+
+// INSTANTIATE SYSTEM
+const Quantum = new QuantumMesh();
+</script>
+</body>
+</html>
